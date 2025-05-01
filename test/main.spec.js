@@ -1,121 +1,125 @@
-const express = require('express');
-const path = require('path');
-const Nightmare = require('nightmare');
-const expect = require('chai').expect;
-const axios = require('axios');
+// tests/main.spec.js
+const { test, expect } = require('@playwright/test');
+const http = require('http');
+const nodeStatic = require('node-static');
 
-const app = express();
-app.use(express.static(path.join(__dirname, '../')));
-app.listen(8888);
+const PORT = 8888;
+const url = `http://localhost:${PORT}/index.html`;
 
-const url = 'http://localhost:8888/index.html';
+let server;
 
+test.beforeAll(async () => {
+  const fileServer = new nodeStatic.Server('./', { cache: 0 });
+  server = http.createServer((req, res) => {
+    req.addListener('end', () => {
+      fileServer.serve(req, res);
+    }).resume();
+  });
 
-describe('Change Calculator', function () {
-  this.timeout(5000);
-  this.slow(3000);
-  
-  it('should load successfully', () => axios.get(url).then(r => expect(r.status === 200)));
+  await new Promise(resolve => server.listen(PORT, resolve));
+});
 
-  describe('HTML', () => {
-    let pageObject;
+test.afterAll(() => {
+  server.close();
+});
 
-    before(() => {
-      pageObject = Nightmare().goto(url);
-    })
+test.describe('Change Calculator', () => {
+  test('should load successfully', async ({ request }) => {
+    const response = await request.get(url);
+    expect(response.status()).toBe(200);
+  });
 
-    it('should have a H1 with the text "Change Calculator"', () =>
-      pageObject
-        .evaluate(() => document.querySelector('h1').innerText)
-        .then(heading => expect(heading).to.equal('Change Calculator'))
-    );
+  test.describe('HTML structure', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto(url);
+    });
 
-    it('should have an input element with an id of "amount-due"', () => 
-      pageObject
-        .evaluate(() => document.querySelector('#amount-due'))
-        .then(input => expect(input).to.exist)
-    );
+    test('should have an H1 with the text "Change Calculator"', async ({ page }) => {
+      const heading = await page.locator('h1').textContent();
+      expect(heading).toBe('Change Calculator');
+    });
 
-    it('should have an input element with an id of "amount-received"', () =>
-      pageObject
-        .evaluate(() => document.querySelector('#amount-received'))
-        .then(input => expect(input).to.exist)
-    );
+    test('should have required input elements and button', async ({ page }) => {
+      await expect(page.locator('input#amount-due')).toHaveCount(1);
+      await expect(page.locator('input#amount-received')).toHaveCount(1);
+      await expect(page.locator('button#calculate-change')).toHaveCount(1);
+    });
 
-    it('should contain a button with an id of "calculate-change"', () =>
-      pageObject
-        .evaluate(() => document.querySelector('#calculate-change'))
-        .then(input => expect(input).to.exist)
-    );
-
-    [
+    const outputIds = [
       'dollars-output',
       'quarters-output',
       'dimes-output',
       'nickels-output',
       'pennies-output'
-    ].map(id => {
-      it(`should contain a paragraph element with an id of "${id}"`, () =>
-        pageObject
-          .evaluate((id) => document.querySelector(`#${id}`), id)
-          .then(input => expect(input).to.exist)
-      );
+    ];
+    
+    for (const id of outputIds) {
+      test(`should have a <p> tag with id="${id}"`, async ({ page }) => {
+        const element = page.locator(`p#${id}`);
+        await expect(element).toHaveCount(1);
+      });
+    }
+
+    test('should allow typing into #amount-due', async ({ page }) => {
+      await page.fill('#amount-due', '12.34');
+      const value = await page.locator('#amount-due').inputValue();
+      expect(value).toBe('12.34');
+    });
+
+    test('should allow typing into #amount-received', async ({ page }) => {
+      await page.fill('#amount-received', '20');
+      const value = await page.locator('#amount-received').inputValue();
+      expect(value).toBe('20');
+    });
+
+    test('should trigger calculation when #calculate-change is clicked', async ({ page }) => {
+      await page.fill('#amount-due', '10');
+      await page.fill('#amount-received', '20');
+      await page.click('#calculate-change');
+
+      const dollars = await page.locator('#dollars-output').textContent();
+      expect(dollars).toBe('10');
     });
   });
 
-  describe('Integration', () => {
-    let pageObject;
+  test.describe('Integration tests', () => {
+    const scenarios = [
+      {
+        due: '10.21',
+        received: '20',
+        expected: {
+          dollars: '9',
+          quarters: '3',
+          dimes: '0',
+          nickels: '0',
+          pennies: '4',
+        },
+      },
+      {
+        due: '13.34',
+        received: '20',
+        expected: {
+          dollars: '6',
+          quarters: '2',
+          dimes: '1',
+          nickels: '1',
+          pennies: '1',
+        },
+      }
+    ];
 
-    beforeEach(() => {
-      pageObject = Nightmare();
-    })
+    for (const { due, received, expected } of scenarios) {
+      test(`should display correct change for $${received} received, $${due} due`, async ({ page }) => {
+        await page.goto(url);
+        await page.fill('#amount-received', received);
+        await page.fill('#amount-due', due);
+        await page.click('#calculate-change');
 
-    it(`should display correct change`, () => {
-      return pageObject
-        .goto(url)  
-        .type('#amount-received', '20')
-        .type('#amount-due', '10.21')
-        .click('#calculate-change')
-        .wait('#dollars-output')
-        .evaluate(() => ({
-          dollars: document.querySelector('#dollars-output').innerText,
-          quarters: document.querySelector('#quarters-output').innerText,
-          dimes: document.querySelector('#dimes-output').innerText,
-          nickels: document.querySelector('#nickels-output').innerText,
-          pennies: document.querySelector('#pennies-output').innerText,
-        }))
-        .end()
-        .then(change => {
-          expect(change.dollars).to.equal('9', 'Expected dollars didn\'t match');
-          expect(change.quarters).to.equal('3', 'Expected quarters didn\'t match');
-          expect(change.dimes).to.equal('0', 'Expected dimes didn\'t match');
-          expect(change.nickels).to.equal('0', 'Expected nickels didn\'t match');
-          expect(change.pennies).to.equal('4', 'Expected pennies didn\'t match');
-        });
-    });
-
-    it(`should display correct change`, () => {
-      return pageObject
-        .goto(url)  
-        .type('#amount-received', '20')
-        .type('#amount-due', '13.34')
-        .click('#calculate-change')
-        .wait('#dollars-output')
-        .evaluate(() => ({
-          dollars: document.querySelector('#dollars-output').innerText,
-          quarters: document.querySelector('#quarters-output').innerText,
-          dimes: document.querySelector('#dimes-output').innerText,
-          nickels: document.querySelector('#nickels-output').innerText,
-          pennies: document.querySelector('#pennies-output').innerText,
-        }))
-        .end()
-        .then(change => {
-          expect(change.dollars).to.equal('6', 'Expected dollars didn\'t match');
-          expect(change.quarters).to.equal('2', 'Expected quarters didn\'t match');
-          expect(change.dimes).to.equal('1', 'Expected dimes didn\'t match');
-          expect(change.nickels).to.equal('1', 'Expected nickels didn\'t match');
-          expect(change.pennies).to.equal('1', 'Expected pennies didn\'t match');
-        });
-    });
+        for (const [key, value] of Object.entries(expected)) {
+          const text = await page.locator(`#${key}-output`).textContent();
+          expect(text).toBe(value);
+        }
+      });
+    }
   });
 });
