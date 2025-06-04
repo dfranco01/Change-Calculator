@@ -12,7 +12,7 @@ document.getElementById("calculate-change").addEventListener("click", function()
     document.getElementById("nickels-output").innerText=Nickels;
     document.getElementById("pennies-output").innerText=Pennies;
 })
-
+//comment
 document.getElementById("clear-button").addEventListener("click", function(){
     document.getElementById("dollars-output").innerText= "";
     document.getElementById("quarters-output").innerText= "";
