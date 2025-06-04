@@ -1,14 +1,36 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <title>Change Calculator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
     <!-- Write your markup here -->
+     <h1>Change Calculator</h1>
+     <label for="amount-due" style="color:darkgreen">Amount Due</label>
+     <input id="amount-due">
+     <label for="amount-received" style="color:darkgreen">Amount Received</label>
+     <input id="amount-received">
+     <button id="calculate-change">Calculate Change</button>
+     <button id="clear-button">Clear</button>
+     <div id="output-container">
+        <p class="header">Dollars:</p>
+        <p class="output" id="dollars-output"></p>
+        <p class="header">Quarters</p>
+        <p class="output" id="quarters-output"></p>
+        <p class="header">Dimes</p>
+        <p class="output" id="dimes-output"></p>
+        <p class="header">Nickels</p>
+        <p class="output" id="nickels-output"></p>
+        <p class="header">Pennies</p>
+        <p class="output" id="pennies-output"></p>
+      </div>
 
     <!-- Don't forget to add your <script> tag here -->
 
+      <script type="module" src="main.js"></script>
   </body>
 </html>
