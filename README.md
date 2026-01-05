@@ -21,7 +21,7 @@ HTML, CSS, Vanilla JavaScript
 - Foreign currency conversions, most notably pesos, yuan, and euro
 
 ## Demo 📷
-
+[Demo Video](https://github.com/dfranco01/Change-Calculator/blob/main/demo/Change_calc.mp4)
 
 ## Contributing 🤝
 Feel free to open issues, submit Pull Requests, or suggest improvements!
